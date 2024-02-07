@@ -10,7 +10,9 @@ fn main() {
 
     let mut lexer = parser::Token::lexer(src.as_str());
     match parser::parse_value(&mut lexer) {
-        Ok(json) => println!("{:#?}", json),
+        Ok(json) => {
+            std::hint::black_box(json);
+        }
         Err((msg, span)) => {
             use ariadne::{ColorGenerator, Label, Report, ReportKind, Source};
 

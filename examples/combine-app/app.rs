@@ -14,7 +14,7 @@ fn main() {
     let mut parser = parser::json_value();
     match parser.easy_parse(src.as_bytes()) {
         Ok(json) => {
-            println!("{:#?}", json);
+            std::hint::black_box(json);
         }
         Err(err) => {
             eprintln!("{:#?}", err);

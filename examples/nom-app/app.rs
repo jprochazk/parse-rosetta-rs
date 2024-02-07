@@ -12,7 +12,7 @@ fn main() {
 
     match parser::root::<VerboseError<&str>>(src.as_str()) {
         Ok(json) => {
-            println!("{:#?}", json);
+            std::hint::black_box(json);
         }
         Err(Err::Error(err)) | Err(Err::Failure(err)) => {
             let err = convert_error(src.as_str(), err);

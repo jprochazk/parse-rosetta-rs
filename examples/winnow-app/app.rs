@@ -15,7 +15,7 @@ fn main() {
         .map_err(|e| e.to_string())
     {
         Ok(json) => {
-            println!("{:#?}", json);
+            std::hint::black_box(json);
         }
         Err(err) => {
             eprintln!("{}", err);

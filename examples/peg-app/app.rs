@@ -8,7 +8,7 @@ fn main() {
 
     match parser::parser::json(&src) {
         Ok(json) => {
-            println!("{:#?}", json);
+            std::hint::black_box(json);
         }
         Err(err) => {
             eprintln!("{}", err);

@@ -4,7 +4,12 @@ fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync + 'static>> {
     let src = fs::read_to_string(env::args().nth(1).expect("Expected file argument"))
         .expect("Failed to read file");
 
-    std::hint::black_box(src);
+    match serde_json::from_str::<serde_json::Value>(&src) {
+        Ok(value) => {
+            std::hint::black_box(value);
+        }
+        Err(e) => eprintln!("{e}"),
+    }
 
     Ok(())
 }

@@ -14,7 +14,7 @@ fn main() {
         .expect("Failed to read file");
 
     let (json, errs) = parser::parser().parse_recovery(src.trim());
-    println!("{:#?}", json);
+    std::hint::black_box(json);
     errs.into_iter().for_each(|e| {
         let msg = if let chumsky::error::SimpleReason::Custom(msg) = e.reason() {
             msg.clone()

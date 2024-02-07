@@ -14,7 +14,7 @@ fn main() {
 
     match json::ValueParser::new().parse(&src) {
         Ok(json) => {
-            println!("{:#?}", json);
+            std::hint::black_box(json);
         }
         Err(err) => {
             eprintln!("{}", err);
