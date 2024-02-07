@@ -28,12 +28,14 @@ pub enum Value {
 /// > NOTE: regexes for [`Token::Number`] and [`Token::String`] may not
 /// > catch all possible values, especially for strings. If you find
 /// > errors, please report them so that we can improve the regex.
-#[derive(Debug, Logos)]
+#[derive(Clone, Copy, Debug, Logos)]
 #[logos(skip r"[ \t\r\n\f]+")]
 pub enum Token {
-    #[token("false", |_| false)]
-    #[token("true", |_| true)]
-    Bool(bool),
+    #[token("true")]
+    True,
+
+    #[token("false")]
+    False,
 
     #[token("{")]
     BraceOpen,
@@ -56,23 +58,24 @@ pub enum Token {
     #[token("null")]
     Null,
 
-    #[regex(r"-?(?:0|[1-9]\d*)(?:\.\d+)?(?:[eE][+-]?\d+)?", |lex| lex.slice().parse::<f64>().unwrap())]
-    Number(f64),
+    #[regex(r"-?(?:0|[1-9]\d*)(?:\.\d+)?(?:[eE][+-]?\d+)?")]
+    Number,
 
-    #[regex(r#""([^"\\]|\\["\\bnfrt]|u[a-fA-F0-9]{4})*""#, |lex| lex.slice().to_owned())]
-    String(String),
+    #[regex(r#""([^"\\]|\\["\\bnfrt]|u[a-fA-F0-9]{4})*""#)]
+    String,
 }
 
 /// Parse a token stream into a JSON value.
-pub fn parse_value<'source>(lexer: &mut Lexer<'source, Token>) -> Result<Value> {
+pub fn parse_value(lexer: &mut Lexer<'_, Token>) -> Result<Value> {
     if let Some(token) = lexer.next() {
         match token {
-            Ok(Token::Bool(b)) => Ok(Value::Bool(b)),
+            Ok(Token::True) => Ok(Value::Bool(true)),
+            Ok(Token::False) => Ok(Value::Bool(false)),
             Ok(Token::BraceOpen) => parse_object(lexer),
             Ok(Token::BracketOpen) => parse_array(lexer),
             Ok(Token::Null) => Ok(Value::Null),
-            Ok(Token::Number(n)) => Ok(Value::Number(n)),
-            Ok(Token::String(s)) => Ok(Value::String(s)),
+            Ok(Token::Number) => Ok(Value::Number(lexer.slice().parse::<f64>().unwrap())),
+            Ok(Token::String) => Ok(Value::String(lexer.slice().to_owned())),
             _ => Err((
                 "unexpected token here (context: value)".to_owned(),
                 lexer.span(),
@@ -87,7 +90,7 @@ pub fn parse_value<'source>(lexer: &mut Lexer<'source, Token>) -> Result<Value> 
 /// a valid terminator is found.
 ///
 /// > NOTE: we assume '[' was consumed.
-fn parse_array<'source>(lexer: &mut Lexer<'source, Token>) -> Result<Value> {
+fn parse_array(lexer: &mut Lexer<'_, Token>) -> Result<Value> {
     let mut array = Vec::new();
     let span = lexer.span();
     let mut awaits_comma = false;
@@ -95,8 +98,12 @@ fn parse_array<'source>(lexer: &mut Lexer<'source, Token>) -> Result<Value> {
 
     while let Some(token) = lexer.next() {
         match token {
-            Ok(Token::Bool(b)) if !awaits_comma => {
-                array.push(Value::Bool(b));
+            Ok(Token::True) if !awaits_comma => {
+                array.push(Value::Bool(true));
+                awaits_value = false;
+            }
+            Ok(Token::False) if !awaits_comma => {
+                array.push(Value::Bool(false));
                 awaits_value = false;
             }
             Ok(Token::BraceOpen) if !awaits_comma => {
@@ -115,12 +122,12 @@ fn parse_array<'source>(lexer: &mut Lexer<'source, Token>) -> Result<Value> {
                 array.push(Value::Null);
                 awaits_value = false
             }
-            Ok(Token::Number(n)) if !awaits_comma => {
-                array.push(Value::Number(n));
+            Ok(Token::Number) if !awaits_comma => {
+                array.push(Value::Number(lexer.slice().parse::<f64>().unwrap()));
                 awaits_value = false;
             }
-            Ok(Token::String(s)) if !awaits_comma => {
-                array.push(Value::String(s));
+            Ok(Token::String) if !awaits_comma => {
+                array.push(Value::String(lexer.slice().to_owned()));
                 awaits_value = false;
             }
             _ => {
@@ -139,7 +146,7 @@ fn parse_array<'source>(lexer: &mut Lexer<'source, Token>) -> Result<Value> {
 /// a valid terminator is found.
 ///
 /// > NOTE: we assume '{' was consumed.
-fn parse_object<'source>(lexer: &mut Lexer<'source, Token>) -> Result<Value> {
+fn parse_object(lexer: &mut Lexer<'_, Token>) -> Result<Value> {
     let mut map = HashMap::new();
     let span = lexer.span();
     let mut awaits_comma = false;
@@ -149,7 +156,8 @@ fn parse_object<'source>(lexer: &mut Lexer<'source, Token>) -> Result<Value> {
         match token {
             Ok(Token::BraceClose) if !awaits_key => return Ok(Value::Object(map)),
             Ok(Token::Comma) if awaits_comma => awaits_key = true,
-            Ok(Token::String(key)) if !awaits_comma => {
+            Ok(Token::String) if !awaits_comma => {
+                let key = lexer.slice().to_owned();
                 match lexer.next() {
                     Some(Ok(Token::Colon)) => (),
                     _ => {
